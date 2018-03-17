@@ -1847,10 +1847,21 @@ implements	ComponentI
 	public Future<?>	runTask(ComponentTask t)
 	{
 		assert	this.isInStateAmong(new ComponentStateI[]{
-							ComponentState.STARTED
+							ComponentState.STARTED, ComponentState.PAUSED
 							}) ;
 		assert	t != null ;
-
+		Future<?> futureRes=null;
+		System.out.println("Ok");
+          synchronized (this.state) {
+        	  if(this.state==ComponentState.PAUSED)
+				try {
+					this.finishedReflection.await();
+					
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}	
+		}
 		Future<?> f = null ;
 		if (this.isConcurrent()) {
 			if (this.isConcurrent) {
@@ -2021,8 +2032,10 @@ implements	ComponentI
 
         Future<T> futureRes=null;
         synchronized (this.state) {
-			  if(this.state == ComponentState.PAUSED)
-				 this.finishedReflection.await();
+     
+			  if(this.state == ComponentState.PAUSED) {
+				   	System.out.println("Comp en pause===>Suspend sur latch");
+				 this.finishedReflection.await();}
 				 futureRes=this.handleRequest(task);
 				 if (!this.isConcurrent()) // Pas d'executors ni scheduler il faut l'executer on execute la tache
 				  return futureRes.get();
@@ -2116,25 +2129,6 @@ implements	ComponentI
 	// ------------------------------------------------------------------------
 	// Handling Reflection
 	// ------------------------------------------------------------------------
-	
-	/**
-	 * 
-	 *
-	 */
-	public void afterRefelect() throws InterruptedException{
-		
-		if (this.nbThreads == 1) {
-			this.requestHandler = Executors.newSingleThreadExecutor() ;
-		} else if (this.nbThreads > 1) {
-			this.requestHandler = Executors.newFixedThreadPool(this.nbThreads) ;
-		}
-		synchronized (this.state) {
-			this.state =ComponentState.STARTED;	
-		}
-		System.out.println("End Reflection");
-	     this.finishedReflection.countDown();
-	     
-	}
 	/**
 	 * 
 	 * 
@@ -2154,6 +2148,43 @@ implements	ComponentI
 		if(this.nbSchedulableThreads > 0)
         this.scheduledTasksHandler.awaitTermination(10,TimeUnit.SECONDS);
 	}
+	
+	/**
+	 * 
+	 *
+	 */
+	public void afterRefelect() throws InterruptedException{
+		
+		if (this.nbThreads == 1) {
+			this.requestHandler = Executors.newSingleThreadExecutor() ;
+		} else if (this.nbThreads > 1) {
+			this.requestHandler = Executors.newFixedThreadPool(this.nbThreads) ;
+		}
+	
+		if (nbSchedulableThreads == 1) {
+			this.scheduledTasksHandler =
+								Executors.newSingleThreadScheduledExecutor() ;
+		} else if (nbSchedulableThreads > 1) {
+			this.scheduledTasksHandler =
+						Executors.newScheduledThreadPool(nbSchedulableThreads) ;
+		}
+		synchronized (this.state) {
+			this.state =ComponentState.STARTED;	
+		}
+		System.out.println("End Reflection");
+	     this.finishedReflection.countDown();
+	    this.finishedReflection=new CountDownLatch(1);
+	     
+	}
+
+	
+	public <T> void	handleRequestReflection(ComponentService<T> task)
+			throws Exception
+			{   
+				System.out.println("Une requete de Reflection Recu");
+				this.requestHandlerReflection.submit(task).get();		
+
+			}
 }
 
 // -----------------------------------------------------------------------------

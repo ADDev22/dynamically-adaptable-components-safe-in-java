@@ -41,6 +41,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import fr.upmc.components.ComponentI.ComponentService;
 import fr.upmc.components.exceptions.ComponentShutdownException;
 import fr.upmc.components.exceptions.ComponentStartException;
 
@@ -1223,5 +1225,15 @@ public interface			ComponentI
 		String[] parametersCanonicalClassNames,
 		String code
 		) throws Exception ;
+	
+	
+	public <T> void	handleRequestReflection(ComponentService<T> task)
+			throws Exception;
+	
+	public void beforeRefelect()
+			throws InterruptedException;
+	
+	public void afterRefelect() 
+			throws InterruptedException;
 }
 //-----------------------------------------------------------------------------
