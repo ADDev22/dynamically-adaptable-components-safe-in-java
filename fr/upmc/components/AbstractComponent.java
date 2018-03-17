@@ -43,6 +43,7 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Vector;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -199,6 +200,15 @@ implements	ComponentI
 	protected ScheduledExecutorService	scheduledTasksHandler ;
 	/** number of threads in the <code>ScheduledExecutorService</code>.		*/
 	protected int						nbSchedulableThreads ;
+	/** the executor service in charge of handling reflect request.	*/
+	protected ExecutorService requestHandlerReflection;
+	/** number of threads in the <code>ExecutorService</code>.		*/
+	protected int						nbThreadsReflect = 1 ;
+	/**   ---------- */
+	protected CountDownLatch finishedReflection;
+	
+	/** Temps d'attente d'extinctin des executors */
+	 long timeOut = 10;
 	/**     */
 
 	// ------------------------------------------------------------------------
@@ -942,6 +952,9 @@ implements	ComponentI
 			this.scheduledTasksHandler =
 						Executors.newScheduledThreadPool(nbSchedulableThreads) ;
 		}
+		
+		this.requestHandlerReflection = Executors.newFixedThreadPool(1);
+		this.finishedReflection = new CountDownLatch(1);
 
 		this.addOfferedInterface(ReflectionI.class) ;
 		try {
@@ -1949,10 +1962,10 @@ implements	ComponentI
 	throws Exception
 	{
 		assert	this.isInStateAmong(new ComponentStateI[]{
-							ComponentState.STARTED
-							}) ;
+				ComponentState.STARTED, ComponentState.PAUSED
+				}) ;
+		
 		assert	task != null ;
-
 		if (this.isConcurrent()) {
 			if (this.isConcurrent) {
 				return this.requestHandler.submit(task) ;
@@ -2002,15 +2015,20 @@ implements	ComponentI
 	throws Exception
 	{
 		assert	this.isInStateAmong(new ComponentStateI[]{
-							ComponentState.STARTED
-							}) ;
+				ComponentState.STARTED, ComponentState.PAUSED
+				}) ;
 		assert	task != null ;
 
-		if (this.isConcurrent()) {
-			return this.handleRequest(task).get() ;
-		} else {
-			return task.call() ;
+        Future<T> futureRes=null;
+        synchronized (this.state) {
+			  if(this.state == ComponentState.PAUSED)
+				 this.finishedReflection.await();
+				 futureRes=this.handleRequest(task);
+				 if (!this.isConcurrent()) // Pas d'executors ni scheduler il faut l'executer on execute la tache
+				  return futureRes.get();
 		}
+        return futureRes.get();
+	
 	}
 
 	/**
@@ -2021,15 +2039,18 @@ implements	ComponentI
 	throws Exception
 	{
 		assert	this.isInStateAmong(new ComponentStateI[]{
-							ComponentState.STARTED
+							ComponentState.STARTED, ComponentState.PAUSED
 							}) ;
 		assert	task != null ;
-
-		if (this.isConcurrent()) {
-			this.handleRequest(task) ;
-		} else {
-			task.call();
-		}
+        
+	    Future<T> futureRes=null;
+	    synchronized (this.state) {
+			if(this.state == ComponentState.PAUSED)
+				this.finishedReflection.await();
+				 futureRes=this.handleRequest(task);
+				 if (!this.isConcurrent()) // Pas d'executors ni scheduler il faut l'executer on execute la tache
+					 futureRes.get();
+			}
 	}
 
 	/**
@@ -2091,5 +2112,48 @@ implements	ComponentI
 
 		this.scheduleRequest(request, delay, u) ;
 	}
+	
+	// ------------------------------------------------------------------------
+	// Handling Reflection
+	// ------------------------------------------------------------------------
+	
+	/**
+	 * 
+	 *
+	 */
+	public void afterRefelect() throws InterruptedException{
+		
+		if (this.nbThreads == 1) {
+			this.requestHandler = Executors.newSingleThreadExecutor() ;
+		} else if (this.nbThreads > 1) {
+			this.requestHandler = Executors.newFixedThreadPool(this.nbThreads) ;
+		}
+		synchronized (this.state) {
+			this.state =ComponentState.STARTED;	
+		}
+		System.out.println("End Reflection");
+	     this.finishedReflection.countDown();
+	     
+	}
+	/**
+	 * 
+	 * 
+	 * 
+	 */
+	public void beforeRefelect() throws InterruptedException{
+		System.out.println("Begin Reflection");
+		synchronized (this.state) {
+			this.state =ComponentState.PAUSED;	
+		}
+		if(this.nbThreads > 0)
+		this.requestHandler.shutdown();
+		if(this.nbSchedulableThreads > 0)
+		this.scheduledTasksHandler.shutdown();
+		if(this.nbThreads > 0)
+		this.requestHandler.awaitTermination(timeOut, TimeUnit.SECONDS);
+		if(this.nbSchedulableThreads > 0)
+        this.scheduledTasksHandler.awaitTermination(10,TimeUnit.SECONDS);
+	}
 }
+
 // -----------------------------------------------------------------------------
