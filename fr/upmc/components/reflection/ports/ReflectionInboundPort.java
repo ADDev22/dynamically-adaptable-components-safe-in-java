@@ -781,12 +781,18 @@ implements	ReflectionI
 	{
 		final ComponentI comp =
 							(ComponentI) this.getServiceProviderReference() ;
-		comp.handleRequestSync(
+		comp.handleRequestReflection(
 				new ComponentI.ComponentService<Void>() {
 					@Override
 					public Void call() throws Exception {
+						comp.beforeRefelect();
+						
+						System.out.println("	Begin traitement");
 						comp.insertBeforeDeclaredMethod(
 							methodName, parametersCanonicalClassNames, code) ;
+						System.out.println("	End traitement");
+						
+						comp.afterRefelect();
 						return null ;
 					}
 				}) ;
@@ -804,12 +810,18 @@ implements	ReflectionI
 	{
 		final ComponentI comp =
 				(ComponentI) this.getServiceProviderReference() ;
-		comp.handleRequestSync(
+		comp.handleRequestReflection(
 				new ComponentI.ComponentService<Void>() {
 					@Override
 					public Void call() throws Exception {
+						comp.beforeRefelect();
+						
+						System.out.println("	Begin traitement");
 						comp.insertAfterDeclaredMethod(
 							methodName, parametersCanonicalClassNames, code) ;
+						System.out.println("	End traitement");
+						
+						comp.afterRefelect();
 						return null ;
 					}
 				}) ;

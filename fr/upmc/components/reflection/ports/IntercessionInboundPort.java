@@ -377,14 +377,16 @@ implements	IntercessionI
 	{
 		final ComponentI comp =
 						(ComponentI) this.getServiceProviderReference() ;
-		comp.handleRequestSync(
+		comp.handleRequestReflection(
 				new ComponentI.ComponentService<Void>() {
 					@Override
 					public Void call() throws Exception {
+						comp.beforeRefelect();
 						comp.insertBeforeDeclaredMethod(
 											methodName,
 											parametersCanonicalClassNames,
 											code) ;
+						comp.afterRefelect();
 						return null ;
 					}
 				}) ;
@@ -402,14 +404,16 @@ implements	IntercessionI
 	{
 		final ComponentI comp =
 				(ComponentI) this.getServiceProviderReference() ;
-		comp.handleRequestSync(
+		comp.handleRequestReflection(
 				new ComponentI.ComponentService<Void>() {
 					@Override
 					public Void call() throws Exception {
+						comp.beforeRefelect();
 						comp.insertBeforeDeclaredMethod(
 									methodName,
 									parametersCanonicalClassNames,
 									code) ;
+						comp.afterRefelect();
 						return null ;
 					}
 				}) ;
